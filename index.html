@@ -1,0 +1,136 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>chat Allegro</title>
+  <script src="https://www.gstatic.com/firebasejs/5.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.2.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/5.0.1/firebase-database.js"></script>
+  <script type="text/javascript" src="elm.js"></script>
+</head>
+
+<body>
+  <div id="myapp"></div>
+</body>
+
+<script type="text/javascript">
+  var firebaseConfig = {
+    apiKey: "AIzaSyAQxqq08F96No0huxVcQHehvERhkNOlHNc",
+    authDomain: "testauth-97162.firebaseapp.com",
+    databaseURL: "https://testauth-97162.firebaseio.com",
+    projectId: "testauth-97162",
+    storageBucket: "testauth-97162.appspot.com",
+    messagingSenderId: "489683554975",
+    appId: "1:489683554975:web:48ffa7f26dc45d041d08aa"
+  };
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+
+  var app = Elm.Main.init({
+    node: document.getElementById('myapp')
+  });
+
+  var isPublic;
+  var roomID;
+  var userName;
+  var myRoomRef;
+  var publicRoomsRef;
+  var publicRooms;
+  var myEditingMsgRef
+  var editedMessageRef
+
+  window.onload = function() {
+    publicRoomsRef = firebase.database().ref().child("publicRooms");
+
+    publicRoomsRef.on('value', function(snapshot) {
+      if (snapshot.val() !== null) {
+        publicRooms = Object.keys(snapshot.val());
+
+        app.ports.publicRoomsReceiver.send(publicRooms);
+      }
+    });
+
+    firebase.auth().signOut();
+  }
+
+  app.ports.roomInfoSender.subscribe(function(roomInfo) {
+    isPublic = roomInfo.isPublic;
+    roomID = roomInfo.roomID;
+
+    if (isPublic) {
+      if (publicRooms === undefined || !publicRooms.includes(roomID)) {
+        publicRoomsRef.child(roomID).set(0);
+      }
+    }
+
+    firebase.auth().signInAnonymously();
+  });
+
+  app.ports.exitRoomSender.subscribe(function(tmp) {
+    myEditingMsgRef.remove();
+    firebase.auth().signOut();
+  });
+
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user) {
+      var myRoomIDsRef = firebase.database().ref().child("roomIDs").child(user.uid);
+
+      myRoomIDsRef.set(roomID);
+
+      myRoomRef = firebase.database().ref().child("rooms").child(roomID);
+
+      var editingMessageRef = firebase.database().ref().child(`rooms/${roomID}/editingMsg`);
+      editedMessageRef = firebase.database().ref().child(`rooms/${roomID}/editedMsg`);
+
+      editingMessageRef.on("value", function(snapshot) {
+        var editingMessage = snapshot.val();
+        if (editingMessage !== null) {
+          var editingMessageMod =
+            Object.keys(editingMessage)
+            .map((key) => ({
+              name: key,
+              message: editingMessage[key]
+            }));
+
+          app.ports.editingMsgReceiver.send(editingMessageMod);
+        }
+      });
+
+
+      editedMessageRef.on("child_added", function(snapshot) {
+        var editedMessage = snapshot.val();
+        if (editedMessage !== null) {
+          var dateTime = new Date(editedMessage["time"]);
+          editedMessage["time"] =
+            dateTime.toLocaleDateString() + " " + dateTime.toLocaleTimeString();
+          app.ports.editedMsgReceiver.send(editedMessage);
+        }
+      });
+
+      app.ports.enterRoomReceiver.send("tmp");
+    } else {
+      // User is signed out.
+    }
+  });
+
+  app.ports.userNameSender.subscribe(function(name) {
+    userName = name;
+    myEditingMsgRef = myRoomRef.child("editingMsg").child(userName);
+    myEditingMsgRef.set("");
+  });
+
+  app.ports.editingMsgSender.subscribe(function(msg) {
+    myEditingMsgRef.set(msg);
+  });
+
+  app.ports.editedMsgSender.subscribe(function(msg) {
+    editedMessageRef.push({
+      "name": userName,
+      "message": msg,
+      "time": firebase.database.ServerValue.TIMESTAMP
+    });
+  });
+</script>
+
+</html>
