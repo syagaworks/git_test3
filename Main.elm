@@ -10,6 +10,7 @@ import Json.Decode as Json
 import Markdown
 
 
+
 -- hogefuga
 -- MAIN
 
@@ -39,14 +40,13 @@ port editingMsgSender : String -> Cmd msg
 port editedMsgSender : String -> Cmd msg
 
 
-
--- ()->にできない？
-
-
 port exitRoomSender : String -> Cmd msg
 
 
 port publicRoomsReceiver : (List String -> msg) -> Sub msg
+
+
+port privateRoomsReceiver : (List String -> msg) -> Sub msg
 
 
 port editingMsgReceiver : (List EditingMsg -> msg) -> Sub msg
@@ -68,6 +68,7 @@ type alias Model =
     , isPublic : Bool
     , userName : String
     , publicRooms : List String
+    , privateRooms : List String
     , myMessage : String
     , editingMessage : List EditingMsg
     , editedMessage : List EditedMsg
@@ -99,7 +100,7 @@ type alias EditedMsg =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Portal "" True "" [] "" [] [] False
+    ( Model Portal "" True "" [] [] "" [] [] False
     , Cmd.none
     )
 
@@ -115,6 +116,7 @@ type Msg
     | EditedMsgSend
     | ExitRoomSend
     | PublicRoomsRecv (List String)
+    | PrivateRoomsRecv (List String)
     | EditingMsgRecv (List EditingMsg)
     | EditedMsgRecv EditedMsg
     | EnterRoomRecv String
@@ -131,7 +133,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         RoomInfoSend ->
-            ( model
+            ( { model
+                | isPublic =
+                    if List.member model.roomID model.privateRooms then
+                        False
+
+                    else if List.member model.roomID model.publicRooms then
+                        True
+
+                    else
+                        model.isPublic
+              }
             , roomInfoSender { roomID = model.roomID, isPublic = model.isPublic }
             )
 
@@ -168,6 +180,13 @@ update msg model =
         PublicRoomsRecv rooms ->
             ( { model
                 | publicRooms = rooms
+              }
+            , Cmd.none
+            )
+
+        PrivateRoomsRecv rooms ->
+            ( { model
+                | privateRooms = rooms
               }
             , Cmd.none
             )
@@ -223,6 +242,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ publicRoomsReceiver PublicRoomsRecv
+        , privateRoomsReceiver PrivateRoomsRecv
         , editingMsgReceiver EditingMsgRecv
         , editedMsgReceiver EditedMsgRecv
         , enterRoomReceiver EnterRoomRecv

@@ -37,6 +37,8 @@
   var myRoomRef;
   var publicRoomsRef;
   var publicRooms;
+  var privateRoomsRef;
+  var privateRooms;
   var myEditingMsgRef
   var editedMessageRef
 
@@ -51,6 +53,14 @@
       }
     });
 
+    privateRoomsRef = firebase.database().ref().child("privateRooms");
+
+    privateRoomsRef.on('value', function(snapshot) {
+      if (snapshot.val() !== null) {
+        privateRooms = Object.keys(snapshot.val());
+      }
+    });
+
     firebase.auth().signOut();
   }
 
@@ -59,9 +69,9 @@
     roomID = roomInfo.roomID;
 
     if (isPublic) {
-      if (publicRooms === undefined || !publicRooms.includes(roomID)) {
-        publicRoomsRef.child(roomID).set(0);
-      }
+      publicRoomsRef.child(roomID).set(0);
+    } else {
+      privateRoomsRef.child(roomID).set(0);
     }
 
     firebase.auth().signInAnonymously();

@@ -5243,16 +5243,33 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Main$Model = F9(
-	function (page, roomID, isPublic, userName, publicRooms, myMessage, editingMessage, editedMessage, hasNameInputted) {
-		return {editedMessage: editedMessage, editingMessage: editingMessage, hasNameInputted: hasNameInputted, isPublic: isPublic, myMessage: myMessage, page: page, publicRooms: publicRooms, roomID: roomID, userName: userName};
-	});
+var $author$project$Main$Model = function (page) {
+	return function (roomID) {
+		return function (isPublic) {
+			return function (userName) {
+				return function (publicRooms) {
+					return function (privateRooms) {
+						return function (myMessage) {
+							return function (editingMessage) {
+								return function (editedMessage) {
+									return function (hasNameInputted) {
+										return {editedMessage: editedMessage, editingMessage: editingMessage, hasNameInputted: hasNameInputted, isPublic: isPublic, myMessage: myMessage, page: page, privateRooms: privateRooms, publicRooms: publicRooms, roomID: roomID, userName: userName};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
 var $author$project$Main$Portal = {$: 'Portal'};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(
-		A9($author$project$Main$Model, $author$project$Main$Portal, '', true, '', _List_Nil, '', _List_Nil, _List_Nil, false),
+		$author$project$Main$Model($author$project$Main$Portal)('')(true)('')(_List_Nil)(_List_Nil)('')(_List_Nil)(_List_Nil)(false),
 		$elm$core$Platform$Cmd$none);
 };
 var $author$project$Main$EditedMsgRecv = function (a) {
@@ -5263,6 +5280,9 @@ var $author$project$Main$EditingMsgRecv = function (a) {
 };
 var $author$project$Main$EnterRoomRecv = function (a) {
 	return {$: 'EnterRoomRecv', a: a};
+};
+var $author$project$Main$PrivateRoomsRecv = function (a) {
+	return {$: 'PrivateRoomsRecv', a: a};
 };
 var $author$project$Main$PublicRoomsRecv = function (a) {
 	return {$: 'PublicRoomsRecv', a: a};
@@ -5307,6 +5327,9 @@ var $author$project$Main$editingMsgReceiver = _Platform_incomingPort(
 			},
 			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string))));
 var $author$project$Main$enterRoomReceiver = _Platform_incomingPort('enterRoomReceiver', $elm$json$Json$Decode$string);
+var $author$project$Main$privateRoomsReceiver = _Platform_incomingPort(
+	'privateRoomsReceiver',
+	$elm$json$Json$Decode$list($elm$json$Json$Decode$string));
 var $author$project$Main$publicRoomsReceiver = _Platform_incomingPort(
 	'publicRoomsReceiver',
 	$elm$json$Json$Decode$list($elm$json$Json$Decode$string));
@@ -5315,6 +5338,7 @@ var $author$project$Main$subscriptions = function (_v0) {
 		_List_fromArray(
 			[
 				$author$project$Main$publicRoomsReceiver($author$project$Main$PublicRoomsRecv),
+				$author$project$Main$privateRoomsReceiver($author$project$Main$PrivateRoomsRecv),
 				$author$project$Main$editingMsgReceiver($author$project$Main$EditingMsgRecv),
 				$author$project$Main$editedMsgReceiver($author$project$Main$EditedMsgRecv),
 				$author$project$Main$enterRoomReceiver($author$project$Main$EnterRoomRecv)
@@ -5325,6 +5349,36 @@ var $elm$json$Json$Encode$string = _Json_wrap;
 var $author$project$Main$editedMsgSender = _Platform_outgoingPort('editedMsgSender', $elm$json$Json$Encode$string);
 var $author$project$Main$editingMsgSender = _Platform_outgoingPort('editingMsgSender', $elm$json$Json$Encode$string);
 var $author$project$Main$exitRoomSender = _Platform_outgoingPort('exitRoomSender', $elm$json$Json$Encode$string);
+var $elm$core$List$any = F2(
+	function (isOkay, list) {
+		any:
+		while (true) {
+			if (!list.b) {
+				return false;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				if (isOkay(x)) {
+					return true;
+				} else {
+					var $temp$isOkay = isOkay,
+						$temp$list = xs;
+					isOkay = $temp$isOkay;
+					list = $temp$list;
+					continue any;
+				}
+			}
+		}
+	});
+var $elm$core$List$member = F2(
+	function (x, xs) {
+		return A2(
+			$elm$core$List$any,
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
+	});
 var $elm$core$Basics$not = _Basics_not;
 var $elm$json$Json$Encode$bool = _Json_wrap;
 var $elm$json$Json$Encode$object = function (pairs) {
@@ -5360,7 +5414,11 @@ var $author$project$Main$update = F2(
 		switch (msg.$) {
 			case 'RoomInfoSend':
 				return _Utils_Tuple2(
-					model,
+					_Utils_update(
+						model,
+						{
+							isPublic: A2($elm$core$List$member, model.roomID, model.privateRooms) ? false : model.isPublic
+						}),
 					$author$project$Main$roomInfoSender(
 						{isPublic: model.isPublic, roomID: model.roomID}));
 			case 'UserNameSend':
@@ -5394,6 +5452,13 @@ var $author$project$Main$update = F2(
 					_Utils_update(
 						model,
 						{publicRooms: rooms}),
+					$elm$core$Platform$Cmd$none);
+			case 'PrivateRoomsRecv':
+				var rooms = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{privateRooms: rooms}),
 					$elm$core$Platform$Cmd$none);
 			case 'EditingMsgRecv':
 				var editingMsg = msg.a;
